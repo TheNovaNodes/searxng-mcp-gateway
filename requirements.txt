@@ -1,0 +1,10 @@
+# Nova-SearXNG-MCP Dependencies
+# Core MCP SDK
+mcp>=1.0.0
+
+# HTTP client for SearXNG API
+requests>=2.28.0
+
+# Optional: for development
+pytest>=7.0.0
+pytest-cov>=4.0.0

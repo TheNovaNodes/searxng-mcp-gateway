@@ -48,9 +48,38 @@ Creates `.env` from `.env.example`:
 | `DEEP_RESEARCH_ORCHESTRATOR` | Orchestrator script path | `(none)` - requires separate setup |
 | `SEMANTIC_ENABLED` | Enable semantic memory fusion | `0` (off by default) |
 
-## MCP Client Integration
+## Installation
+
+### Basic (web search only)
+
+```bash
+pip install nova-searxng-mcp
+```
+
+### With Deep Research (semantic memory fusion)
+
+```bash
+pip install nova-searxng-mcp[memory]
+```
+
+### MCP Client Integration
 
 Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "nova-searxng": {
+      "command": "python",
+      "args": ["-m", "searxng_gateway.server"],
+      "cwd": "/path/to/nova-searxng-mcp",
+      "env": {
+        "SEARXNG_URL": "http://127.0.0.1:8889"
+      }
+    }
+  }
+}
+```
 
 ```json
 {

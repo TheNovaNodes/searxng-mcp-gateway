@@ -21,22 +21,14 @@ from mcp.server.fastmcp import FastMCP
 
 from . import config
 
-# ── Spayka: подключаем пакет memory_gateway из монорепо mcp-tools ───────
-# deep_research тянет семпамять лабы (hybrid_search) в один вызов с вебом.
-# Пакет memory_gateway не установлен в PYTHONPATH (только searxng-gateway),
-# поэтому добавляем его родительский каталог в sys.path при старте.
-import sys as _sys
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_MCP_TOOLS = os.path.dirname(os.path.dirname(_HERE))
-_MG_PKG = os.path.join(_MCP_TOOLS, "memory-gateway")
-for _p in (_MG_PKG, _MCP_TOOLS):
-    if _p not in _sys.path:
-        _sys.path.insert(0, _p)
-
+# ── Optional memory-gateway integration (deep_research) ──────
+# Uses standard PyPI install: pip install nova-searxng-mcp[memory]
+# Falls back gracefully if nova-memory-gateway is not installed.
 try:
     from memory_gateway.search import hybrid_search as _mg_hybrid_search
+
     _MG_AVAILABLE = True
-except Exception:  # noqa: BLE001 — тихо, если пакет недоступен
+except ImportError:
     _mg_hybrid_search = None
     _MG_AVAILABLE = False
 

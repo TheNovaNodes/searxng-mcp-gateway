@@ -16,11 +16,10 @@ MCP (Model Context Protocol) server for SearXNG metasearch engine integration. E
 - **Content Extraction**: Clean HTML to markdown from JavaScript-rendered pages
 - **Category Filtering**: Search in general, images, news, videos, science modes
 - **Language Control**: Multi-language search support with safesearch options
-- **7 Tools Exposed**:
+- **3 Tools Exposed**:
   - `search_web` — Standard web search with engine selection
-  - `deep_research` — Research orchestration + semantic memory fusion
   - `searxng_health` — Engine diagnostics and connectivity
-  - `extract_content` — URL content extraction
+  - `deep_research` — Research orchestration + semantic memory fusion (experimental)
 
 ## Installation
 
@@ -43,10 +42,11 @@ Creates `.env` from `.env.example`:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SEARXNG_URL` | SearXNG instance URL | `http://127.0.0.1:8888` |
+| `SEARXNG_URL` | SearXNG instance URL | `http://localhost:8889` |
 | `SEARXNG_TIMEOUT` | Request timeout (seconds) | 30 |
 | `SEARXNG_MAX_RESULTS` | Max search results | 10 |
-| `DEEP_RESEARCH_ORCHESTRATOR` | Orchestrator script path | null |
+| `DEEP_RESEARCH_ORCHESTRATOR` | Orchestrator script path | `(none)` - requires separate setup |
+| `SEMANTIC_ENABLED` | Enable semantic memory fusion | `0` (off by default) |
 
 ## MCP Client Integration
 
@@ -57,11 +57,10 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "nova-searxng": {
       "command": "python",
-      "args": ["server.py"],
+      "args": ["-m", "searxng_gateway.server"],
       "cwd": "/path/to/nova-searxng-mcp",
       "env": {
-        "SEARXNG_URL": "http://127.0.0.1:8888",
-        "PYTHONPATH": "/path/to/nova-searxng-mcp"
+        "SEARXNG_URL": "http://127.0.0.1:8889"
       }
     }
   }
@@ -72,7 +71,10 @@ Add to `claude_desktop_config.json`:
 ## 💖 Support TheNovaNodes
 
 If our MCP gateways save you time and expand your AI agents' capabilities, consider supporting our infrastructure and the development of new open-source integrations.
+<<<<<<< HEAD
 **USDT (TRC20): TQvw8MJMdSBFXu5G74JsZm1gzg7cuXBZ2o**
+=======
+>>>>>>> 1528c52 (fix(nova-searxng-mcp): README-code drift, optional memory-gateway dependency, USDT/QR removal)
 
 ## License
 

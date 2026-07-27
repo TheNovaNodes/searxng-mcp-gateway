@@ -24,7 +24,7 @@ DEEP_RESEARCH_TIMEOUT = int(os.getenv("DEEP_RESEARCH_TIMEOUT", "240"))  # second
 # лабы (memory-gateway.hybrid_search). Грациозная деградация: если
 # пакет memory_gateway недоступен или выключен — веб работает, semantic
 # помечается degraded.
-SEMANTIC_ENABLED = bool(int(os.getenv("SEMANTIC_ENABLED", "1")))
+SEMANTIC_ENABLED = bool(int(os.getenv("SEMANTIC_ENABLED", "0")))  # OFF by default (experimental)
 SEMANTIC_TOP_K = int(os.getenv("SEMANTIC_TOP_K", "5"))
 SEMANTIC_EXPAND = bool(int(os.getenv("SEMANTIC_EXPAND", "1")))
 SEMANTIC_FUSION = os.getenv("SEMANTIC_FUSION", "weighted")  # weighted | rrf

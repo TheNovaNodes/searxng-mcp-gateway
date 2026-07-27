@@ -7,7 +7,8 @@
 
 Только сырые данные. Без LLM-синтеза.
 Транспорт: stdio (по умолчанию) | streamable-http (сетевой деплой).
-"""
+"""__all__ = ["search_web", "searxng_health", "deep_research", "mcp"]
+__version__ = "1.0.0"
 import os
 import subprocess
 import time

@@ -71,10 +71,6 @@ Add to `claude_desktop_config.json`:
 ## 💖 Support TheNovaNodes
 
 If our MCP gateways save you time and expand your AI agents' capabilities, consider supporting our infrastructure and the development of new open-source integrations.
-<<<<<<< HEAD
-**USDT (TRC20): TQvw8MJMdSBFXu5G74JsZm1gzg7cuXBZ2o**
-=======
->>>>>>> 1528c52 (fix(nova-searxng-mcp): README-code drift, optional memory-gateway dependency, USDT/QR removal)
 
 ## License
 

@@ -1,7 +1,7 @@
-"""Конфигурация searxng-gateway."""
+"""Конфигурация searxng-mcp-gateway."""
 import os
 
-SEARXNG_URL = os.getenv("SEARXNG_URL", "http://localhost:8889")
+SEARXNG_URL = os.getenv("SEARXNG_URL", "http://127.0.0.1:8081")
 DEFAULT_MAX_RESULTS = int(os.getenv("SEARXNG_DEFAULT_MAX", "10"))
 DEFAULT_LANGUAGE = os.getenv("SEARXNG_DEFAULT_LANG", "auto")
 DEFAULT_SAFESEARCH = int(os.getenv("SEARXNG_SAFESEARCH", "0"))  # 0=off, 1=moderate, 2=strict

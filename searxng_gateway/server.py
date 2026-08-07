@@ -1,9 +1,10 @@
-"""MCP-сервер searxng-gateway — веб-поиск для агентов OpenClaw.
+"""MCP-сервер searxng-mcp-gateway — веб-поиск для агентов OpenClaw.
 
 Инструменты:
   - search_web(query, max_results, categories, language, safesearch):
     поиск через SearXNG, чистый JSON.
   - searxng_health(): диагностика доступности SearXNG.
+  - deep_research(query, count): оркестрованное исследование + семантическая память.
 
 Только сырые данные. Без LLM-синтеза.
 Транспорт: stdio (по умолчанию) | streamable-http (сетевой деплой).
@@ -17,7 +18,14 @@ import time
 from typing import Any, Dict, Optional
 
 import requests as _requests
-from mcp.server.fastmcp import FastMCP
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ImportError:
+    try:
+        from fastmcp import FastMCP
+    except ImportError:
+        from mcp.server.mcpserver import MCPServer as FastMCP
 
 from . import config
 
@@ -40,7 +48,10 @@ except Exception:  # noqa: BLE001 — тихо, если пакет недост
     _mg_hybrid_search = None
     _MG_AVAILABLE = False
 
-mcp = FastMCP("searxng-gateway", host=config.HOST, port=config.PORT)
+try:
+    mcp = FastMCP("searxng-mcp-gateway", host=config.HOST, port=config.PORT)
+except TypeError:
+    mcp = FastMCP("searxng-mcp-gateway")
 
 # ---------------------------------------------------------------------------
 

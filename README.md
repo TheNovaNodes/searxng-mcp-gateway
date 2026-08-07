@@ -1,4 +1,4 @@
-# nova-searxng-mcp
+# searxng-mcp-gateway
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -25,8 +25,8 @@ MCP (Model Context Protocol) server for SearXNG metasearch engine integration. E
 
 ```bash
 # Clone repository
-git clone https://github.com/TheNovaNodes/nova-searxng-mcp.git
-cd nova-searxng-mcp
+git clone https://github.com/TheNovaNodes/searxng-mcp-gateway.git
+cd searxng-mcp-gateway
 
 # Create virtual environment
 python3 -m venv venv
@@ -42,7 +42,7 @@ Creates `.env` from `.env.example`:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SEARXNG_URL` | SearXNG instance URL | `http://localhost:8889` |
+| `SEARXNG_URL` | SearXNG instance URL | `http://127.0.0.1:8081` |
 | `SEARXNG_TIMEOUT` | Request timeout (seconds) | 30 |
 | `SEARXNG_MAX_RESULTS` | Max search results | 10 |
 | `DEEP_RESEARCH_ORCHESTRATOR` | Orchestrator script path | `(none)` - requires separate setup |
@@ -55,18 +55,17 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "nova-searxng": {
+    "searxng-gateway": {
       "command": "python",
       "args": ["-m", "searxng_gateway.server"],
-      "cwd": "/path/to/nova-searxng-mcp",
+      "cwd": "/path/to/searxng-mcp-gateway",
       "env": {
-        "SEARXNG_URL": "http://127.0.0.1:8889"
+        "SEARXNG_URL": "http://127.0.0.1:8081"
       }
     }
   }
 }
 ```
-
 
 ## 💖 Support TheNovaNodes
 

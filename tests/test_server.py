@@ -227,6 +227,52 @@ class TestServer(unittest.TestCase):
             self.assertEqual(res["semantic_memory"]["count"], 1)
             self.assertFalse(res["degraded"])
 
+    @patch("searxng_gateway.server._mg_hybrid_search")
+    @patch("searxng_gateway.server.subprocess.run")
+    @patch("os.path.exists")
+    def test_deep_research_with_semantic_memory_degraded(self, mock_exists, mock_run, mock_mg):
+        mock_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "Research findings"
+        mock_proc.stderr = ""
+        mock_run.return_value = mock_proc
+
+        mock_mg.return_value = {
+            "query": "topic",
+            "count": 0,
+            "results": [],
+            "degraded": True,
+        }
+
+        with patch.object(config, "SEMANTIC_ENABLED", True), \
+             patch.object(server, "_MG_AVAILABLE", True), \
+             patch.object(server, "_mg_hybrid_search", mock_mg):
+            res = server.deep_research("topic", count=5)
+            self.assertTrue(res["semantic_memory"]["degraded"])
+            self.assertTrue(res["degraded"])
+
+    @patch("searxng_gateway.server._mg_hybrid_search")
+    @patch("searxng_gateway.server.subprocess.run")
+    @patch("os.path.exists")
+    def test_deep_research_with_semantic_memory_exception(self, mock_exists, mock_run, mock_mg):
+        mock_exists.return_value = True
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "Research findings"
+        mock_proc.stderr = ""
+        mock_run.return_value = mock_proc
+
+        mock_mg.side_effect = Exception("Semantic memory failed")
+
+        with patch.object(config, "SEMANTIC_ENABLED", True), \
+             patch.object(server, "_MG_AVAILABLE", True), \
+             patch.object(server, "_mg_hybrid_search", mock_mg):
+            res = server.deep_research("topic", count=5)
+            self.assertTrue(res["semantic_memory"]["degraded"])
+            self.assertIn("Semantic memory failed", res["semantic_memory"]["error"])
+            self.assertTrue(res["degraded"])
+
     @patch.object(server.mcp, "run")
     def test_main_entrypoint(self, mock_mcp_run):
         server.main()

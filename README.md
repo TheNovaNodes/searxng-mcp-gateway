@@ -7,7 +7,7 @@
 
 ## About
 
-MCP (Model Context Protocol) server for SearXNG metasearch engine integration. Enables AI agents to perform web searches across 90+ search engines, extract content from URLs, and combine web results with semantic memory through unified interface.
+MCP (Model Context Protocol) server for SearXNG metasearch engine integration. As an essential component of the **Antigravity Agent Ecosystem** under TheNovaNodes, it enables AI agents to perform web searches across 90+ search engines, extract content from URLs, and combine web results with semantic memory through a unified interface.
 
 ## Features
 

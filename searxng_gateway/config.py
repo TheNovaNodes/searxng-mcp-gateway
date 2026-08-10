@@ -1,4 +1,4 @@
-"""Конфигурация searxng-mcp-gateway."""
+"""Configuration for searxng-mcp-gateway."""
 import os
 
 SEARXNG_URL = os.getenv("SEARXNG_URL", "http://127.0.0.1:8081")
@@ -10,20 +10,20 @@ HOST = os.getenv("SEARXNG_HOST", "127.0.0.1")
 PORT = int(os.getenv("SEARXNG_PORT", "8092"))
 
 # ── Deep Research (distilled from lab-research, adapted) ───────────────
-# Путь к оркестратору /research (fan-out по провайдерам: Tavily/Firecrawl/
+# Path to the /research orchestrator (fan-out across providers: Tavily/Firecrawl/
 # TinyFish/SearXNG, merge + dedup + freshness + synthesis).
 DEEP_RESEARCH_ORCHESTRATOR = os.getenv(
     "DEEP_RESEARCH_ORCHESTRATOR",
     "/path/to/search-orchestrator.sh",
 )
-# Тяжёлый пайплайн — щедрый таймаут, но не бесконечный.
+# Heavy pipeline — generous timeout, but not infinite.
 DEEP_RESEARCH_TIMEOUT = int(os.getenv("DEEP_RESEARCH_TIMEOUT", "240"))  # seconds
 
-# ── Semantic Memory fusion (spayka с memory-gateway) ───────────────────
-# deep_research тянет в ОДНОМ вызове и веб (оркестратор), и семпамять
-# лабы (memory-gateway.hybrid_search). Грациозная деградация: если
-# пакет memory_gateway недоступен или выключен — веб работает, semantic
-# помечается degraded.
+# ── Semantic Memory fusion (integration with memory-gateway) ───────────────────
+# deep_research pulls both web (orchestrator) and semantic memory
+# (memory-gateway.hybrid_search) in a SINGLE call. Graceful degradation: if
+# memory_gateway package is unavailable or disabled — web works, semantic
+# is marked degraded.
 SEMANTIC_ENABLED = bool(int(os.getenv("SEMANTIC_ENABLED", "0")))  # OFF by default (experimental)
 SEMANTIC_TOP_K = int(os.getenv("SEMANTIC_TOP_K", "5"))
 SEMANTIC_EXPAND = bool(int(os.getenv("SEMANTIC_EXPAND", "1")))

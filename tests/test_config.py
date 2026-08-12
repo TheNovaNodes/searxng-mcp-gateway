@@ -18,7 +18,7 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(config.DEFAULT_MAX_RESULTS, 10)
             self.assertEqual(config.DEFAULT_LANGUAGE, "auto")
             self.assertEqual(config.DEFAULT_SAFESEARCH, 0)
-            self.assertEqual(config.DEFAULT_TIMEOUT, 10)
+            self.assertEqual(config.DEFAULT_TIMEOUT, 30)
             self.assertEqual(config.HOST, "127.0.0.1")
             self.assertEqual(config.PORT, 8092)
             self.assertEqual(config.DEEP_RESEARCH_TIMEOUT, 240)
@@ -30,8 +30,8 @@ class TestConfig(unittest.TestCase):
     def test_env_overrides(self):
         env_vars = {
             "SEARXNG_URL": "http://192.168.1.100:8081",
-            "SEARXNG_DEFAULT_MAX": "25",
-            "SEARXNG_DEFAULT_LANG": "en",
+            "SEARXNG_MAX_RESULTS": "25",
+            "SEARXNG_DEFAULT_LANGUAGE": "en",
             "SEARXNG_SAFESEARCH": "1",
             "SEARXNG_TIMEOUT": "20",
             "SEARXNG_HOST": "0.0.0.0",

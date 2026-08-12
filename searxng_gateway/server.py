@@ -1,13 +1,13 @@
-"""MCP-сервер searxng-mcp-gateway — веб-поиск для агентов OpenClaw.
+"""MCP server searxng-mcp-gateway — web search for AI agents.
 
-Инструменты:
+Tools:
   - search_web(query, max_results, categories, language, safesearch):
-    поиск через SearXNG, чистый JSON.
-  - searxng_health(): диагностика доступности SearXNG.
-  - deep_research(query, count): оркестрованное исследование + семантическая память.
+    Search via SearXNG, returns pure JSON.
+  - searxng_health(): Diagnostics for SearXNG availability.
+  - deep_research(query, count): Orchestrated research + semantic memory.
 
-Только сырые данные. Без LLM-синтеза.
-Транспорт: stdio (по умолчанию) | streamable-http (сетевой деплой).
+Returns raw data only. No LLM synthesis is performed here.
+Transport: stdio (default) | streamable-http (network deployment).
 """
 
 __all__ = ["search_web", "searxng_health", "deep_research", "mcp"]
@@ -15,9 +15,10 @@ __version__ = "1.0.0"
 import os
 import subprocess
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests as _requests
+from pydantic import BaseModel, Field, ValidationError
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -29,10 +30,10 @@ except ImportError:
 
 from . import config
 
-# ── Spayka: подключаем пакет memory_gateway из монорепо mcp-tools ───────
-# deep_research тянет семпамять лабы (hybrid_search) в один вызов с вебом.
-# Пакет memory_gateway не установлен в PYTHONPATH (только searxng-gateway),
-# поэтому добавляем его родительский каталог в sys.path при старте.
+# ── Spayka: connecting memory_gateway package from mcp-tools monorepo ───────
+# deep_research pulls lab's semantic memory (hybrid_search) in one call with web.
+# The memory_gateway package might not be in PYTHONPATH (only searxng-gateway),
+# so we add its parent directory to sys.path on startup.
 import sys as _sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _MCP_TOOLS = os.path.dirname(os.path.dirname(_HERE))
@@ -44,7 +45,7 @@ for _p in (_MG_PKG, _MCP_TOOLS):
 try:
     from memory_gateway.search import hybrid_search as _mg_hybrid_search
     _MG_AVAILABLE = True
-except Exception:  # noqa: BLE001 — тихо, если пакет недоступен
+except Exception:  # noqa: BLE001 - silent if package is unavailable
     _mg_hybrid_search = None
     _MG_AVAILABLE = False
 
@@ -54,6 +55,26 @@ except TypeError:
     mcp = FastMCP("searxng-mcp-gateway")
 
 # ---------------------------------------------------------------------------
+# Pydantic Schemas for validation
+
+class SearXNGResultItem(BaseModel):
+    title: str = ""
+    url: str = ""
+    content: str = ""
+    engine: str = ""
+    engines: List[str] = Field(default_factory=list)
+    score: float = 0.0
+    category: str = ""
+    publishedDate: Optional[str] = None
+
+class SearXNGResponse(BaseModel):
+    query: str = ""
+    number_of_results: int = 0
+    results: List[SearXNGResultItem] = Field(default_factory=list)
+    answers: List[str] = Field(default_factory=list)
+    infoboxes: List[Dict[str, Any]] = Field(default_factory=list)
+    suggestions: List[str] = Field(default_factory=list)
+    unresponsive_engines: List[Any] = Field(default_factory=list)
 
 
 def _searxng_search(
@@ -65,7 +86,7 @@ def _searxng_search(
     engines: Optional[str] = None,
     timeout: int = config.DEFAULT_TIMEOUT,
 ) -> Dict[str, Any]:
-    """Вызов SearXNG API + нормализация ответа."""
+    """Calls SearXNG API + normalizes response with multi-engine fallback."""
     params: Dict[str, Any] = {
         "q": query,
         "format": "json",
@@ -79,36 +100,60 @@ def _searxng_search(
 
     url = f"{config.SEARXNG_URL}/search"
     t0 = time.time()
-    resp = _requests.get(url, params=params, timeout=timeout)
-    latency_ms = round((time.time() - t0) * 1000.0, 1)
-    resp.raise_for_status()
-    raw = resp.json()
 
-    # Нормализация — отдаём только нужное агентам
-    results = []
-    for r in raw.get("results", [])[:max_results]:
-        item = {
-            "title": r.get("title", ""),
-            "url": r.get("url", ""),
-            "content": r.get("content", ""),
-            "engine": r.get("engine", ""),
-            "engines": r.get("engines", []),
-            "score": r.get("score", 0.0),
-            "category": r.get("category", ""),
+    # Attempt search
+    resp = _requests.get(url, params=params, timeout=timeout)
+    resp.raise_for_status()
+    raw_json = resp.json()
+
+    # Multi-engine fallback: if explicit engines were requested but yielded no results,
+    # try a safe default fallback.
+    if engines and not raw_json.get("results"):
+        params.pop("engines", None) # Remove explicit engines
+        fallback_resp = _requests.get(url, params=params, timeout=timeout)
+        if fallback_resp.status_code == 200:
+            raw_json = fallback_resp.json()
+
+    latency_ms = round((time.time() - t0) * 1000.0, 1)
+
+    # Validate with Pydantic
+    try:
+        validated_data = SearXNGResponse(**raw_json)
+    except ValidationError as e:
+        # If validation fails unexpectedly, attempt to construct a degraded response
+        return {
+            "query": query,
+            "count": 0,
+            "results": [],
+            "degraded": True,
+            "error": f"JSON Schema Validation Error: {str(e)}",
+            "latency_ms": latency_ms,
         }
-        pub = r.get("publishedDate")
-        if pub:
-            item["published_date"] = pub
+
+    # Normalization — providing only what agents need
+    results = []
+    for r in validated_data.results[:max_results]:
+        item = {
+            "title": r.title,
+            "url": r.url,
+            "content": r.content,
+            "engine": r.engine,
+            "engines": r.engines,
+            "score": r.score,
+            "category": r.category,
+        }
+        if r.publishedDate:
+            item["published_date"] = r.publishedDate
         results.append(item)
 
     return {
         "query": query,
         "count": len(results),
         "results": results,
-        "answers": raw.get("answers", []),
-        "infoboxes": raw.get("infoboxes", []),
-        "suggestions": raw.get("suggestions", []),
-        "unresponsive_engines": raw.get("unresponsive_engines", []),
+        "answers": validated_data.answers,
+        "infoboxes": validated_data.infoboxes,
+        "suggestions": validated_data.suggestions,
+        "unresponsive_engines": validated_data.unresponsive_engines,
         "latency_ms": latency_ms,
     }
 
@@ -125,24 +170,24 @@ def search_web(
     safesearch: int = config.DEFAULT_SAFESEARCH,
     engines: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Веб-поиск через SearXNG. Сырые результаты без LLM-синтеза.
+    """Web search via SearXNG. Raw results without LLM synthesis.
 
     Args:
-        query: поисковый запрос на естественном языке.
-        max_results: максимум результатов (1..50, по умолчанию 10).
-        categories: категория поиска — general, images, news, videos, music, files, it, science, social media. None = general.
-        language: язык результатов — auto, ru, en, de, ... (по умолчанию auto).
-        safesearch: фильтр контента — 0=off, 1=moderate, 2=strict.
-        engines: явный пул движков (напр. "google,bing") или категория движков. None = default.
+        query: Natural language search query.
+        max_results: Maximum results (1..50, default 10).
+        categories: Search category — general, images, news, videos, music, files, it, science, social media. None = general.
+        language: Result language — auto, ru, en, de, ... (default auto).
+        safesearch: Content filter — 0=off, 1=moderate, 2=strict.
+        engines: Explicit pool of engines (e.g., "google,bing") or engine category. None = default.
 
     Returns:
-        Чистый JSON: {query, count, results[], latency_ms}. Каждый результат:
+        Pure JSON: {query, count, results[], latency_ms}. Each result:
         {title, url, content, engine, score, category, published_date?}.
     """
     max_results = max(1, min(50, max_results))
     try:
         out = _searxng_search(query, max_results, categories, language, safesearch, engines)
-    except Exception as e:  # noqa: BLE001 — инструмент не должен ронять сервер
+    except Exception as e:  # noqa: BLE001 - tool should not crash the server
         return {
             "query": query,
             "count": 0,
@@ -156,7 +201,7 @@ def search_web(
 
 @mcp.tool(name="searxng_health")
 def searxng_health() -> Dict[str, Any]:
-    """Диагностика SearXNG: доступность, версия, число движков.
+    """SearXNG diagnostics: availability, version, number of engines.
 
     Returns:
         {status, searxng_url, reachable, status_code?, engines?, version?, error?}
@@ -167,7 +212,7 @@ def searxng_health() -> Dict[str, Any]:
         "reachable": False,
     }
     try:
-        # Проверка /search (быстрый healthcheck)
+        # Check /search (quick healthcheck)
         t0 = time.time()
         resp = _requests.get(
             f"{config.SEARXNG_URL}/search",
@@ -190,7 +235,7 @@ def searxng_health() -> Dict[str, Any]:
         info["status"] = "down"
         info["error"] = f"{type(e).__name__}: {e}"
 
-    # Попытка достать версию из /config
+    # Attempt to extract version from /config
     try:
         cfg_resp = _requests.get(f"{config.SEARXNG_URL}/config", timeout=3)
         if cfg_resp.status_code == 200:
@@ -206,19 +251,19 @@ def searxng_health() -> Dict[str, Any]:
 
 @mcp.tool(name="deep_research")
 def deep_research(query: str, count: int = 10) -> Dict[str, Any]:
-    """Глубокое исследование + семантическая память лабы в ОДНОМ вызове.
+    """Deep research + lab's semantic memory in ONE call.
 
-    Комбайн: веб (оркестратор /research, fan-out Tavily/Firecrawl/TinyFish/
-    SearXNG + merge + синтез) плюс семантическая память лабы
-    (memory-gateway.hybrid_search: vector ALM + lexical FTS5). Оба слоя
-    возвращаются вместе; при недоступности одного — degraded, не падение.
+    Combine: web (orchestrator /research, fan-out Tavily/Firecrawl/TinyFish/
+    SearXNG + merge + synthesis) plus lab's semantic memory
+    (memory-gateway.hybrid_search: vector ALM + lexical FTS5). Both layers
+    are returned together; if one is unavailable, it is marked as degraded, no crash.
 
     Args:
-        query: исследовательский вопрос.
-        count: число результатов на провайдера веб-слоя (по умолчанию 10).
+        query: Research question.
+        count: Number of results per web-layer provider (default 10).
 
     Returns:
-        {query, answer (веб-синтез), semantic_memory (лаба), degraded?, error?}
+        {query, answer (web synthesis), semantic_memory (lab), degraded?, error?}
     """
     result: Dict[str, Any] = {
         "query": query,
@@ -226,7 +271,7 @@ def deep_research(query: str, count: int = 10) -> Dict[str, Any]:
         "semantic_memory": None,
         "degraded": False,
     }
-    # ── Веб-слой (оркестратор) ──────────────────────────────────────────
+    # ── Web layer (orchestrator) ──────────────────────────────────────────
     orchestrator = config.DEEP_RESEARCH_ORCHESTRATOR
     if not orchestrator or not os.path.exists(orchestrator):
         result["degraded"] = True
@@ -243,10 +288,10 @@ def deep_research(query: str, count: int = 10) -> Dict[str, Any]:
             result["answer"] = out or "No research output."
             if proc.returncode != 0:
                 result["degraded"] = True
-        except Exception as e:  # noqa: BLE001 — тул не должен ронять сервер
+        except Exception as e:  # noqa: BLE001 - tool should not crash the server
             result["degraded"] = True
             result["error"] = f"{type(e).__name__}: {e}"
-    # ── Семантический слой (память лабы) ────────────────────────────────
+    # ── Semantic layer (lab memory) ────────────────────────────────
     if config.SEMANTIC_ENABLED and _MG_AVAILABLE:
         try:
             sem = _mg_hybrid_search(
@@ -282,7 +327,7 @@ def deep_research(query: str, count: int = 10) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def main():
-    """Точка входа для CLI (pyproject.toml script)."""
+    """Entry point for CLI (pyproject.toml script)."""
     mcp.run(transport="stdio")
 
 

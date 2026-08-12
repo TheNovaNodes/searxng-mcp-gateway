@@ -7,7 +7,11 @@
 
 ## About
 
-MCP (Model Context Protocol) server for SearXNG metasearch engine integration. Enables AI agents to perform web searches across 90+ search engines, extract content from URLs, and combine web results with semantic memory through unified interface.
+**searxng-mcp-gateway** is an MCP (Model Context Protocol) server for SearXNG metasearch engine integration, functioning as a core component of the **Antigravity Agent Ecosystem** managed by **DoctorM & Ai / TheNovaNodes**. It enables AI agents to perform web searches across 90+ search engines, extract content from URLs, and seamlessly combine web results with semantic memory through a unified interface.
+
+## Ecosystem Role
+
+As part of the **Antigravity Agent Ecosystem**, this gateway serves as the primary external knowledge retrieval mechanism for our autonomous agents. It is designed to return raw data without LLM-based synthesis, ensuring agents receive clean, unopinionated information to process in their own context.
 
 ## Features
 

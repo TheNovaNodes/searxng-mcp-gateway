@@ -1,64 +1,87 @@
+---
+module_type: gateway
+status: active
+protocol: mcp
+primary_capability: search
+requires: searxng
+works_with: mcp-clients
+last_verified: 2026-08-21
+---
+
 # searxng-mcp-gateway
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP Server](https://img.shields.io/badge/MCP--Server-available-green)](https://modelcontextprotocol.io/)
-[![SearXNG](https://img.shields.io/badge/SearXNG-Integrated-orange)]
+**Provides read-only web search and deep research orchestration capabilities via SearXNG.**
 
-## About
+## Status
+Active - Last verified: 2026-08-21
 
-MCP (Model Context Protocol) server for SearXNG metasearch engine integration. Enables AI agents to perform web searches across 90+ search engines, extract content from URLs, and combine web results with semantic memory through unified interface.
+## What it does / does not do
+**Does:**
+- Exposes web search capabilities to MCP clients via a local SearXNG instance.
+- Diagnoses connectivity and availability of the underlying SearXNG engine.
+- Orchestrates deep research and semantic memory retrieval.
 
-## Features
+**Does not:**
+- Mutate SearXNG settings.
+- Enable or disable search engines.
 
-- **Web Search**: Metasearch across 90+ engines (Google, Bing, DuckDuckGo, etc.)
-- **Deep Research**: Multi-step research with source analysis and synthesis
-- **Content Extraction**: Clean HTML to markdown from JavaScript-rendered pages
-- **Category Filtering**: Search in general, images, news, videos, science modes
-- **Language Control**: Multi-language search support with safesearch options
-- **3 Tools Exposed**:
-  - `search_web` — Standard web search with engine selection
-  - `searxng_health` — Engine diagnostics and connectivity
-  - `deep_research` — Research orchestration + semantic memory fusion (experimental)
+## Why an agent would use it
+Agents can use this gateway to perform web searches, retrieve context for complex queries, and orchestrate deep research workflows leveraging semantic memory without mutating the underlying search engine state.
 
-## Installation
+## Architecture and dependencies
+- Python >= 3.10
+- Dependencies: `mcp>=1.0.0`, `requests>=2.28.0` (Optional: `memory-gateway`, `pytest`)
+- Communicates with a SearXNG instance over HTTP.
 
+## Compatibility
+Works with standard MCP clients and expects SearXNG.
+
+## Quick start and health check
+Start the gateway:
 ```bash
-# Clone repository
-git clone https://github.com/TheNovaNodes/searxng-mcp-gateway.git
-cd searxng-mcp-gateway
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+python -m searxng_mcp_gateway
+```
+Health check:
+```bash
+python -m pytest tests/test_health.py
 ```
 
-## Configuration
+## Configuration and environment variables
+- `SEARXNG_URL`: The URL of the SearXNG instance (default: `http://127.0.0.1:8081`).
+- `HOST`: MCP server host (default: `127.0.0.1`).
+- `PORT`: MCP server port (default: `8092`).
+- `SEARXNG_DEFAULT_MAX`: Default max results (default: `10`).
+- `SEARXNG_DEFAULT_LANG`: Default language (default: `auto`).
+- `SEARXNG_SAFESEARCH`: Safe search level (default: `0`).
+- `SEARXNG_TIMEOUT`: Request timeout (default: `10`).
+- `DEEP_RESEARCH_ORCHESTRATOR`: Path to deep research script.
+- `DEEP_RESEARCH_TIMEOUT`: Orchestrator timeout (default: `240`).
+- `SEMANTIC_ENABLED`: Enable semantic memory.
 
-Creates `.env` from `.env.example`:
+## Complete MCP Tool/API table with side effects
+| Tool | Description | Side Effects |
+|------|-------------|--------------|
+| `search_web` | Web search | None |
+| `deep_research` | Heavy search orchestrator | None |
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SEARXNG_URL` | SearXNG instance URL | `http://127.0.0.1:8081` |
-| `SEARXNG_TIMEOUT` | Request timeout (seconds) | 30 |
-| `SEARXNG_MAX_RESULTS` | Max search results | 10 |
-| `DEEP_RESEARCH_ORCHESTRATOR` | Orchestrator script path | `(none)` - requires separate setup |
-| `SEMANTIC_ENABLED` | Enable semantic memory fusion | `0` (off by default) |
+## Security model and trust boundaries
+- Needs access to a SearXNG instance without authentication. Do not expose SearXNG to the public internet directly.
 
-## MCP Client Integration
+## Tests and exact commands
+```bash
+pytest tests/
+```
 
-Add to `claude_desktop_config.json`:
+## Operations, logs, backup/restore, rollback
+- Stateless. No backups needed.
 
+## Generic MCP-client example
 ```json
 {
   "mcpServers": {
-    "searxng-gateway": {
+    "searxng": {
       "command": "python",
-      "args": ["-m", "searxng_gateway.server"],
-      "cwd": "/path/to/searxng-mcp-gateway",
+      "args": ["-m", "searxng_mcp_gateway"],
       "env": {
         "SEARXNG_URL": "http://127.0.0.1:8081"
       }
@@ -67,10 +90,8 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-## 💖 Support TheNovaNodes
-
-If our MCP gateways save you time and expand your AI agents' capabilities, consider supporting our infrastructure and the development of new open-source integrations.
+## Related TheNovaNodes modules
+- searxng-mcp-control
 
 ## License
-
-MIT — See LICENSE file.
+MIT

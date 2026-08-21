@@ -265,6 +265,79 @@ def deep_research(query_or_url: str, mode: str = "auto") -> Dict[str, Any]:
 
 # ---------------------------------------------------------------------------
 
+from searxng_gateway import orchestrator
+from searxng_gateway import vault
+import concurrent.futures
+
+@mcp.tool(name="hybrid_search")
+def hybrid_search(query: str, max_results: int = 10) -> Dict[str, Any]:
+    """Гибридный поиск: параллельно опрашивает SearXNG и платные API (Quota-Aware Waterfall), склеивая результаты через RRF.
+    
+    Args:
+        query: поисковый запрос
+        max_results: максимум результатов (до 50)
+    """
+    max_results = max(1, min(50, max_results))
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_searx = executor.submit(_searxng_search, query, max_results)
+        future_deep = executor.submit(orchestrator.deep_search_cascade, query, max_results)
+        
+        try:
+            searx_res = future_searx.result(timeout=15)
+        except Exception:
+            searx_res = {"results": []}
+            
+        try:
+            deep_res = future_deep.result(timeout=20)
+        except Exception:
+            deep_res = {"results": []}
+
+    list1 = searx_res.get("results", [])
+    list2 = deep_res.get("results", [])
+    
+    fused = orchestrator.reciprocal_rank_fusion([list1, list2])
+    
+    return {
+        "query": query,
+        "provider_deep": deep_res.get("provider", "none"),
+        "count": len(fused[:max_results]),
+        "results": fused[:max_results]
+    }
+
+@mcp.tool(name="ecosystem_health")
+def ecosystem_health() -> Dict[str, Any]:
+    """Расширенная диагностика всей поисковой экосистемы (SearXNG + Внешние API)."""
+    # Вызываем старый хелсчек для базы
+    s_health = searxng_health()
+    
+    health = {
+        "searxng": s_health.get("status", "unknown"),
+        "searxng_latency_ms": s_health.get("latency_ms", 0),
+        "api_echelons": {}
+    }
+    
+    # Считываем состояние ключей из CircuitBreaker'а
+    for provider_name, balancer in echelon.balancers.items():
+        keys = vault.get_keys(provider_name)
+        total_keys = len(keys)
+        if total_keys == 0:
+            health["api_echelons"][provider_name] = "🔴 Down (No Keys)"
+            continue
+            
+        available = sum(1 for k in keys if echelon.cb.is_available(k))
+        
+        if available == total_keys:
+            health["api_echelons"][provider_name] = f"🟢 OK ({available}/{total_keys} keys ready)"
+        elif available > 0:
+            health["api_echelons"][provider_name] = f"🟡 Degraded ({available}/{total_keys} keys ready)"
+        else:
+            health["api_echelons"][provider_name] = "🔴 Down (All keys on cooldown)"
+            
+    return health
+
+# ---------------------------------------------------------------------------
+
 def main():
     """Точка входа для CLI (pyproject.toml script)."""
     mcp.run(transport="stdio")

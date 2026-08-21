@@ -283,15 +283,31 @@ def hybrid_search(query: str, max_results: int = 10) -> Dict[str, Any]:
         future_searx = executor.submit(_searxng_search, query, max_results)
         future_deep = executor.submit(orchestrator.deep_search_cascade, query, max_results)
         
-        try:
-            searx_res = future_searx.result(timeout=15)
-        except Exception:
-            searx_res = {"results": []}
+        done, not_done = concurrent.futures.wait(
+            [future_searx, future_deep], 
+            timeout=20, 
+            return_when=concurrent.futures.ALL_COMPLETED
+        )
+        
+        searx_res = {"results": []}
+        deep_res = {"results": []}
+        degraded = False
+        
+        if future_searx in done:
+            try:
+                searx_res = future_searx.result()
+            except Exception:
+                degraded = True
+        else:
+            degraded = True
             
-        try:
-            deep_res = future_deep.result(timeout=20)
-        except Exception:
-            deep_res = {"results": []}
+        if future_deep in done:
+            try:
+                deep_res = future_deep.result()
+            except Exception:
+                degraded = True
+        else:
+            degraded = True
 
     list1 = searx_res.get("results", [])
     list2 = deep_res.get("results", [])
@@ -302,7 +318,8 @@ def hybrid_search(query: str, max_results: int = 10) -> Dict[str, Any]:
         "query": query,
         "provider_deep": deep_res.get("provider", "none"),
         "count": len(fused[:max_results]),
-        "results": fused[:max_results]
+        "results": fused[:max_results],
+        "degraded": degraded
     }
 
 @mcp.tool(name="ecosystem_health")

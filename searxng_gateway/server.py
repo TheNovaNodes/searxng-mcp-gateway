@@ -204,78 +204,62 @@ def searxng_health() -> Dict[str, Any]:
 
 # ---------------------------------------------------------------------------
 
-@mcp.tool(name="deep_research")
-def deep_research(query: str, count: int = 10) -> Dict[str, Any]:
-    """Глубокое исследование + семантическая память лабы в ОДНОМ вызове.
+from searxng_gateway import echelon
 
-    Комбайн: веб (оркестратор /research, fan-out Tavily/Firecrawl/TinyFish/
-    SearXNG + merge + синтез) плюс семантическая память лабы
-    (memory-gateway.hybrid_search: vector ALM + lexical FTS5). Оба слоя
-    возвращаются вместе; при недоступности одного — degraded, не падение.
+@mcp.tool(name="deep_research")
+def deep_research(query_or_url: str, mode: str = "auto") -> Dict[str, Any]:
+    """Глубокое исследование (Echelon Routing) с использованием премиальных API.
 
     Args:
-        query: исследовательский вопрос.
-        count: число результатов на провайдера веб-слоя (по умолчанию 10).
+        query_or_url: поисковый запрос или конкретный URL для краулинга.
+        mode: режим роутинга - 'auto', 'semantic' (Exa), 'scrape' (Firecrawl/Olostep).
 
     Returns:
-        {query, answer (веб-синтез), semantic_memory (лаба), degraded?, error?}
+        Синтезированный ответ или выкачанный Markdown.
     """
     result: Dict[str, Any] = {
-        "query": query,
+        "query": query_or_url,
+        "mode": mode,
+        "provider": None,
         "answer": None,
-        "semantic_memory": None,
         "degraded": False,
     }
-    # ── Веб-слой (оркестратор) ──────────────────────────────────────────
-    orchestrator = config.DEEP_RESEARCH_ORCHESTRATOR
-    if not orchestrator or not os.path.exists(orchestrator):
-        result["degraded"] = True
-        result["error"] = "DEEP_RESEARCH_ORCHESTRATOR not configured or missing"
-    else:
-        try:
-            proc = subprocess.run(
-                [orchestrator, query, "deep_research", str(count)],
-                capture_output=True,
-                text=True,
-                timeout=config.DEEP_RESEARCH_TIMEOUT,
-            )
-            out = (proc.stdout or "").strip() or (proc.stderr or "").strip()
-            result["answer"] = out or "No research output."
-            if proc.returncode != 0:
-                result["degraded"] = True
-        except Exception as e:  # noqa: BLE001 — тул не должен ронять сервер
+    
+    is_url = query_or_url.startswith("http://") or query_or_url.startswith("https://")
+    
+    if mode == "semantic" and not is_url:
+        # Echelon 2: Exa AI Semantic Search
+        exa_res = echelon.call_exa(query_or_url)
+        result["provider"] = "exa"
+        result["answer"] = exa_res
+        if "error" in exa_res:
             result["degraded"] = True
-            result["error"] = f"{type(e).__name__}: {e}"
-    # ── Семантический слой (память лабы) ────────────────────────────────
-    if config.SEMANTIC_ENABLED and _MG_AVAILABLE:
-        try:
-            sem = _mg_hybrid_search(
-                query,
-                config.SEMANTIC_TOP_K,
-                expand_context=config.SEMANTIC_EXPAND,
-                fusion=config.SEMANTIC_FUSION,
-            )
-            result["semantic_memory"] = sem
-            if sem.get("degraded"):
-                result["degraded"] = result["degraded"] or True
-        except Exception as e:  # noqa: BLE001
-            result["semantic_memory"] = {
-                "query": query,
-                "count": 0,
-                "results": [],
-                "degraded": True,
-                "error": f"{type(e).__name__}: {e}",
-            }
-            result["degraded"] = result["degraded"] or True
+            
+    elif is_url or mode == "scrape":
+        # Echelon 3: Firecrawl
+        fc_res = echelon.call_firecrawl_scrape(query_or_url)
+        result["provider"] = "firecrawl"
+        
+        # WAF Detection & Fallback to Echelon 4 (Olostep)
+        if "error" in fc_res and echelon.detect_waf(fc_res):
+            result["provider"] = "firecrawl -> olostep (WAF Bypassed)"
+            olo_res = echelon.call_olostep_scrape(query_or_url)
+            result["answer"] = olo_res
+            if "error" in olo_res:
+                result["degraded"] = True
+        else:
+            result["answer"] = fc_res
+            if "error" in fc_res:
+                result["degraded"] = True
+                
     else:
-        result["semantic_memory"] = {
-            "degraded": True,
-            "error": (
-                "memory_gateway unavailable"
-                if not _MG_AVAILABLE
-                else "disabled (SEMANTIC_ENABLED=0)"
-            ),
-        }
+        # Mode auto and is a search query -> Echelon 1: Tavily Unlimited
+        tav_res = echelon.call_tavily(query_or_url)
+        result["provider"] = "tavily"
+        result["answer"] = tav_res
+        if "error" in tav_res:
+            result["degraded"] = True
+            
     return result
 
 

@@ -37,10 +37,3 @@ def test_searxng_health():
         assert res["status"] == "ok"
         assert res["reachable"]
 
-def test_deep_research_success():
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(stdout="Research Answer", stderr="", returncode=0)
-        res = deep_research("test")
-        assert "Research Answer" in res["answer"]
-        # Assuming memory_gateway is not available in the test env, it should fallback
-        assert res["semantic_memory"]["degraded"]

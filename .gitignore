@@ -20,3 +20,7 @@ env/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+coverage.out
+
+# Go binaries
+bin/

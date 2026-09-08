@@ -5,90 +5,76 @@ protocol: mcp
 primary_capability: search
 requires: searxng
 works_with: mcp-clients
-last_verified: 2026-08-21
+last_verified: 2026-09-08
 ---
 
 # searxng-mcp-gateway
 
-**Provides read-only web search and deep research orchestration capabilities via SearXNG.**
+**Высокопроизводительный Go MCP шлюз веб-поиска, глубокого исследования и извлечения контента для агентов экосистемы TheNovaNodes.**
 
-## Status
-Active - Last verified: 2026-08-21
+## Статус
+Active — Переписан на Go 1.22+ (март 2026) по стандартам TheNovaNodes.
 
-## What it does / does not do
-**Does:**
-- Exposes web search capabilities to MCP clients via a local SearXNG instance.
-- Diagnoses connectivity and availability of the underlying SearXNG engine and external paid APIs.
-- Orchestrates deep research and semantic memory retrieval.
-- Performs Quota-Aware Hybrid Search (RRF) cascading through external APIs (Tavily, Exa) and local SearXNG.
+## Назначение
+Предоставляет автономным агентам минималистичный и надежный набор из **3 канонических инструментов** для полноценной работы в сети:
+1. `search_web` — быстрый локальный поиск через SearXNG без расхода внешних квот.
+2. `fetch_page` — выкачивание веб-страниц в чистый Markdown с обходом WAF/Cloudflare (Firecrawl / Olostep / HTTP fallback).
+3. `deep_research` — гибридный исследовательский поиск (SearXNG + Exa AI / Tavily) с дедупликацией и слиянием через Reciprocal Rank Fusion (RRF, $k=60$).
 
-**Does not:**
-- Mutate SearXNG settings.
-- Enable or disable search engines.
+## Архитектура и зависимости
+- **Язык:** Go 1.22+ / 1.25
+- **MCP SDK:** `github.com/mark3labs/mcp-go v0.58.0`
+- **Конкурентность:** Нативные горутины, `golang.org/x/sync/errgroup` с ограниченными контекстными таймаутами.
+- **Хранилище секретов:** Динамическое чтение API ключей из RAM-диска (`/dev/shm/agent_vault`).
+- **Сетевая защита:** Потокобезопасный `CircuitBreaker` с автоматическим распознаванием таймаутов (`net.Error`) и HTTP кодов 401/403/429/5xx.
 
-## Why an agent would use it
-Agents can use this gateway to perform web searches, retrieve context for complex queries, and orchestrate deep research workflows leveraging semantic memory without mutating the underlying search engine state. The new hybrid search provides the highest quality results by gracefully load-balancing paid APIs and falling back to free engines.
-
-## Architecture and dependencies
-- Python >= 3.10
-- Dependencies: `mcp>=1.0.0`, `requests>=2.28.0`
-- Communicates with a SearXNG instance over HTTP.
-- Communicates with external Echelon APIs (Tavily, Exa, Firecrawl, Olostep) via Vault secrets.
-
-## Compatibility
-Works with standard MCP clients and expects SearXNG.
-
-## Quick start and health check
-Start the gateway:
+## Сборка и тестирование
+Сборка бинарника:
 ```bash
-python -m searxng_mcp_gateway
+make build
+# Создает исполняемый файл bin/searxng-gateway (~7.7 MB)
 ```
-Health check:
+
+Запуск юнит-тестов с детектором гонок:
 ```bash
-python -m pytest tests/test_health.py
+make test
 ```
 
-## Configuration and environment variables
-- `SEARXNG_URL`: The URL of the SearXNG instance (default: `http://127.0.0.1:8081`).
-- `HOST`: MCP server host (default: `127.0.0.1`).
-- `PORT`: MCP server port (default: `8092`).
-
-## Complete MCP Tool/API table with side effects
-| Tool | Description | Side Effects |
-|------|-------------|--------------|
-| `search_web` | Basic local web search via SearXNG | None |
-| `deep_research` | Heavy search orchestrator | None |
-| `hybrid_search` | Parallel search (SearXNG + Paid APIs) with Quota-Aware Fallback and RRF fusion | None (consumes API quotas) |
-| `ecosystem_health` | Deep diagnostics for SearXNG and commercial API key circuit breakers | None |
-
-## Security model and trust boundaries
-- Needs access to a SearXNG instance without authentication. Do not expose SearXNG to the public internet directly.
-
-## Tests and exact commands
+Интеграционные тесты против живого SearXNG:
 ```bash
-pytest tests/
+go test -v -tags=integration ./internal/server
 ```
 
-## Operations, logs, backup/restore, rollback
-- Stateless. No backups needed.
+## Конфигурация (Environment Variables)
+| Переменная | По умолчанию | Описание |
+| :--- | :--- | :--- |
+| `SEARXNG_URL` | `http://127.0.0.1:8889` | URL инстанса SearXNG |
+| `SEARXNG_DEFAULT_MAX` | `10` | Дефолтное число результатов поиска |
+| `SEARXNG_MAX_ALLOWED` | `50` | Максимальный лимит выдачи |
+| `SEARXNG_DEFAULT_LANG`| `auto` | Язык поиска по умолчанию |
+| `SEARXNG_SAFESEARCH`  | `0` | Фильтр контента (0=off, 1=moderate, 2=strict) |
+| `SEARXNG_TIMEOUT`     | `10` | Таймаут запроса к SearXNG (секунды) |
+| `CASCADE_TIMEOUT`     | `6` | Таймаут внешнего каскада API (секунды) |
+| `RRF_K`               | `60` | Константа ранжирования RRF |
+| `AGENT_VAULT_DIR`     | `/dev/shm/agent_vault` | Директория Vault ключей |
 
-## Generic MCP-client example
-```json
-{
-  "mcpServers": {
-    "searxng": {
-      "command": "python",
-      "args": ["-m", "searxng_mcp_gateway"],
-      "env": {
-        "SEARXNG_URL": "http://127.0.0.1:8081"
-      }
-    }
-  }
-}
+## Доступные инструменты MCP
+
+| Инструмент | Параметры | Описание |
+| :--- | :--- | :--- |
+| `search_web` | `query` (str, req), `max_results` (int), `categories` (str), `language` (str), `safesearch` (int), `engines` (str) | Быстрый локальный поиск через SearXNG. Сырые структурированные результаты без LLM-галлюцинаций. |
+| `fetch_page` | `url` (str, req) | Выкачивание страницы и очистка в Markdown с обходом WAF (Firecrawl $\rightarrow$ Olostep $\rightarrow$ Native). |
+| `deep_research` | `query` (str, req), `max_results` (int) | Параллельный опрос SearXNG и Exa AI / Tavily со слиянием через RRF ($k=60$) и удалением дубликатов. |
+
+## Подключение к mcp-router
+```yaml
+  nova-searxng-gateway:
+    transport: stdio
+    command: /root/projects/TheNovaNodes/searxng-mcp-gateway/bin/searxng-gateway
+    env:
+      SEARXNG_URL: http://127.0.0.1:8889
+    prefix: nova-searxng-gateway__
 ```
 
-## Related TheNovaNodes modules
-- searxng-mcp-control
-
-## License
+## Лицензия
 MIT

@@ -113,6 +113,16 @@ func (o *Orchestrator) SearchCascade(ctx context.Context, query string, maxResul
 	}
 }
 
+// MaxMarkdownLength defines the maximum allowed characters in scraped markdown (approx. 8,500 tokens).
+const MaxMarkdownLength = 35000
+
+func truncateMarkdown(md string) string {
+	if len(md) <= MaxMarkdownLength {
+		return md
+	}
+	return md[:MaxMarkdownLength] + "\n\n... [Content truncated to 35,000 characters by gateway guardrail] ..."
+}
+
 // ScrapePage performs intelligent page scraping (Firecrawl -> Olostep WAF bypass -> Native).
 func (o *Orchestrator) ScrapePage(ctx context.Context, targetURL string) *echelon.ScrapeResult {
 	// 1. Try Firecrawl
@@ -120,6 +130,7 @@ func (o *Orchestrator) ScrapePage(ctx context.Context, targetURL string) *echelo
 	if selectedKey, ok := o.balancers["firecrawl"].GetNext(fcKeys, o.cb); ok {
 		res, err := o.firecrawl.Scrape(ctx, selectedKey, targetURL, o.cb)
 		if err == nil && res != nil && res.Markdown != "" {
+			res.Markdown = truncateMarkdown(res.Markdown)
 			return res
 		}
 		// If WAF or error detected, proceed to Olostep
@@ -134,6 +145,7 @@ func (o *Orchestrator) ScrapePage(ctx context.Context, targetURL string) *echelo
 		res, err := o.olostep.Scrape(ctx, selectedKey, targetURL, o.cb)
 		if err == nil && res != nil && res.Markdown != "" {
 			res.Provider = "firecrawl -> olostep (WAF Bypassed)"
+			res.Markdown = truncateMarkdown(res.Markdown)
 			return res
 		}
 	}
@@ -142,6 +154,7 @@ func (o *Orchestrator) ScrapePage(ctx context.Context, targetURL string) *echelo
 	res, err := o.nativeScraper.Scrape(ctx, targetURL)
 	if err == nil && res != nil && res.Markdown != "" {
 		res.Provider = "native (HTTP fallback)"
+		res.Markdown = truncateMarkdown(res.Markdown)
 		return res
 	}
 

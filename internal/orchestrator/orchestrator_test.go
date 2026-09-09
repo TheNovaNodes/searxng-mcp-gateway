@@ -62,3 +62,28 @@ func TestOrchestratorScrapeNativeFallback(t *testing.T) {
 		t.Errorf("unexpected content: '%s'", res.Markdown)
 	}
 }
+
+func TestOrchestratorScrapeTruncation(t *testing.T) {
+	hugeBody := ""
+	for i := 0; i < 4000; i++ {
+		hugeBody += "0123456789 "
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte(hugeBody))
+	}))
+	defer ts.Close()
+
+	searxClient := searxng.NewClient(ts.URL, 2*time.Second)
+	v := vault.NewVault(t.TempDir())
+
+	orc := NewOrchestrator(searxClient, v, nil, 60)
+	res := orc.ScrapePage(context.Background(), ts.URL)
+
+	if len(res.Markdown) > MaxMarkdownLength+150 {
+		t.Errorf("markdown exceeded max length: %d", len(res.Markdown))
+	}
+	if len(res.Markdown) <= MaxMarkdownLength {
+		t.Errorf("expected markdown to have truncation footer, got length: %d", len(res.Markdown))
+	}
+}

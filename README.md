@@ -45,25 +45,25 @@ make test
 go test -v -tags=integration ./internal/server
 ```
 
-## Конфигурация (Environment Variables)
-| Переменная | По умолчанию | Описание |
+## Configuration (Environment Variables)
+| Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `SEARXNG_URL` | `http://127.0.0.1:8889` | URL инстанса SearXNG |
-| `SEARXNG_DEFAULT_MAX` | `10` | Дефолтное число результатов поиска |
-| `SEARXNG_MAX_ALLOWED` | `50` | Максимальный лимит выдачи |
-| `SEARXNG_DEFAULT_LANG`| `auto` | Язык поиска по умолчанию |
-| `SEARXNG_SAFESEARCH`  | `0` | Фильтр контента (0=off, 1=moderate, 2=strict) |
-| `SEARXNG_TIMEOUT`     | `10` | Таймаут запроса к SearXNG (секунды) |
-| `CASCADE_TIMEOUT`     | `6` | Таймаут внешнего каскада API (секунды) |
-| `RRF_K`               | `60` | Константа ранжирования RRF |
-| `AGENT_VAULT_DIR`     | `/dev/shm/agent_vault` | Директория Vault ключей |
+| `SEARXNG_URL` | `http://127.0.0.1:8889` | URL of the SearXNG instance |
+| `SEARXNG_DEFAULT_MAX` | `10` | Default number of search results |
+| `SEARXNG_MAX_ALLOWED` | `50` | Maximum allowed number of search results |
+| `SEARXNG_DEFAULT_LANG`| `auto` | Default search language |
+| `SEARXNG_SAFESEARCH`  | `0` | Content filter (0=off, 1=moderate, 2=strict) |
+| `SEARXNG_TIMEOUT`     | `10` | Timeout for SearXNG requests (seconds) |
+| `CASCADE_TIMEOUT`     | `6` | Timeout for external API cascade (seconds) |
+| `RRF_K`               | `60` | RRF ranking constant |
+| `AGENT_VAULT_DIR`     | `/dev/shm/agent_vault` | Vault directory for keys |
 
 ## Доступные инструменты MCP
 
 | Инструмент | Параметры | Описание |
 | :--- | :--- | :--- |
 | `search_web` | `query` (str, req), `max_results` (int), `categories` (str), `language` (str), `safesearch` (int), `engines` (str) | Быстрый локальный поиск через SearXNG. Сырые структурированные результаты без LLM-галлюцинаций. |
-| `fetch_page` | `url` (str, req) | Выкачивание страницы и очистка в Markdown с обходом WAF (Firecrawl $\rightarrow$ Olostep $\rightarrow$ Native). |
+| `fetch_page` | `url` (str, req) | Выкачивание страницы и очистка в Markdown с обходом WAF (Firecrawl $\rightarrow$ Olostep $\rightarrow$ Native). Строгий Token Guardrail урезает результат до 35,000 символов для защиты контекста LLM. |
 | `deep_research` | `query` (str, req), `max_results` (int) | Параллельный опрос SearXNG и Exa AI / Tavily со слиянием через RRF ($k=60$) и удалением дубликатов. |
 
 ## Подключение к mcp-router

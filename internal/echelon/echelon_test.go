@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"net"
 	"time"
 )
 
@@ -89,5 +90,94 @@ func TestNativeScraper(t *testing.T) {
 	}
 	if res.Markdown != "Hello World  Sample text" {
 		t.Errorf("unexpected content: '%s'", res.Markdown)
+	}
+}
+
+func TestRoundRobinBalancerEmpty(t *testing.T) {
+	b := NewRoundRobinBalancer()
+	cb := NewCircuitBreaker(time.Minute)
+	keys := []string{}
+
+	k, ok := b.GetNext(keys, cb)
+	if ok || k != "" {
+		t.Errorf("expected empty string and false, got %s, %v", k, ok)
+	}
+}
+
+func TestCircuitBreakerShouldTripNetError(t *testing.T) {
+	cb := NewCircuitBreaker(time.Minute)
+
+	// Context DeadlineExceeded is tested above.
+	// Net timeout
+	if !cb.ShouldTrip(0, &netErrorMock{timeout: true}) {
+		t.Errorf("expected net.Error with Timeout()=true to trip")
+	}
+
+	if cb.ShouldTrip(0, &netErrorMock{timeout: false}) {
+		t.Errorf("expected net.Error with Timeout()=false NOT to trip, unless it's another handled type")
+	}
+
+	// OpError
+	if !cb.ShouldTrip(0, &net.OpError{}) {
+		t.Errorf("expected *net.OpError to trip")
+	}
+}
+
+type netErrorMock struct {
+	timeout bool
+}
+
+func (e *netErrorMock) Error() string   { return "netErrorMock" }
+func (e *netErrorMock) Timeout() bool   { return e.timeout }
+func (e *netErrorMock) Temporary() bool { return false }
+
+func TestRoundRobinBalancerSelection(t *testing.T) {
+	b := NewRoundRobinBalancer()
+	cb := NewCircuitBreaker(time.Minute)
+	keys := []string{"k1", "k2", "k3"}
+
+	// Sequence: k1, k2, k3, k1...
+	for i, want := range []string{"k1", "k2", "k3", "k1"} {
+		k, ok := b.GetNext(keys, cb)
+		if !ok || k != want {
+			t.Errorf("step %d: expected %s, got %s", i, want, k)
+		}
+	}
+
+	// k2 fails
+	cb.RecordFailure("k2")
+
+	// Next should be k2, but it's failed, so skip to k3
+	k, ok := b.GetNext(keys, cb)
+	if !ok || k != "k3" {
+		t.Errorf("expected k3 (skipping k2), got %s", k)
+	}
+
+	// All fail
+	cb.RecordFailure("k1")
+	cb.RecordFailure("k3")
+	k, ok = b.GetNext(keys, cb)
+	if ok || k != "" {
+		t.Errorf("expected empty string and false, got %s, %v", k, ok)
+	}
+}
+
+func TestCircuitBreakerStateTransitions(t *testing.T) {
+	cb := NewCircuitBreaker(100 * time.Millisecond)
+	key := "test-key-cb"
+
+	// Closed -> Open (on failure)
+	if !cb.IsAvailable(key) {
+		t.Errorf("expected key to be available initially (Closed state)")
+	}
+	cb.RecordFailure(key)
+	if cb.IsAvailable(key) {
+		t.Errorf("expected key to be unavailable after failure (Open state)")
+	}
+
+	// Open -> Half-Open/Closed (after timeout)
+	time.Sleep(150 * time.Millisecond)
+	if !cb.IsAvailable(key) {
+		t.Errorf("expected key to be available after timeout (Closed/Half-Open state)")
 	}
 }

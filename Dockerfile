@@ -1,21 +1,26 @@
-FROM python:3.12-slim AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
-COPY . /app
 
-RUN pip install --no-cache-dir build \
-    && python -m build --wheel \
-    && pip install --no-cache-dir dist/*.whl
+RUN apk add --no-cache git ca-certificates
 
-FROM python:3.12-slim
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -v -ldflags="-s -w" -o /bin/searxng-gateway .
+
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates tzdata
+
 WORKDIR /app
-COPY --from=builder /usr/local/bin/searxng-mcp-gateway /usr/local/bin/
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
-# Add a non-root user
-RUN useradd -m appuser \
-    && chown -R appuser:appuser /app
+COPY --from=builder /bin/searxng-gateway /usr/local/bin/
+
+RUN adduser -D -u 1000 appuser && chown -R appuser:appuser /app
 
 USER appuser
 
-ENTRYPOINT ["searxng-mcp-gateway"]
+ENTRYPOINT ["searxng-gateway"]

@@ -54,6 +54,12 @@ type rawSearxResponse struct {
 
 // Search queries SearXNG and normalizes the results.
 func (c *Client) Search(ctx context.Context, params SearchParams) (*SearchResult, error) {
+	if c.httpClient.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.httpClient.Timeout)
+		defer cancel()
+	}
+
 	t0 := time.Now()
 
 	limit := params.MaxResults
@@ -94,14 +100,15 @@ func (c *Client) Search(ctx context.Context, params SearchParams) (*SearchResult
 	latencyMs := math.Round(float64(time.Since(t0).Microseconds())/100.0) / 10.0
 
 	if err != nil {
+		sanitizedErr := fmt.Errorf("searxng request failed: connection error or timeout")
 		return &SearchResult{
 			Query:     params.Query,
 			Count:     0,
 			Results:   []ResultItem{},
 			LatencyMs: latencyMs,
 			Degraded:  true,
-			Error:     err.Error(),
-		}, err
+			Error:     sanitizedErr.Error(),
+		}, sanitizedErr
 	}
 	defer resp.Body.Close()
 
@@ -161,6 +168,12 @@ func (c *Client) Search(ctx context.Context, params SearchParams) (*SearchResult
 
 // Health checks SearXNG connectivity and reports status.
 func (c *Client) Health(ctx context.Context) *HealthInfo {
+	if c.httpClient.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.httpClient.Timeout)
+		defer cancel()
+	}
+
 	info := &HealthInfo{
 		Status:     "unknown",
 		SearXNGURL: c.baseURL,
@@ -172,7 +185,7 @@ func (c *Client) Health(ctx context.Context) *HealthInfo {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, searchURL, nil)
 	if err != nil {
 		info.Status = "down"
-		info.Error = err.Error()
+		info.Error = "invalid request"
 		return info
 	}
 
@@ -181,7 +194,7 @@ func (c *Client) Health(ctx context.Context) *HealthInfo {
 
 	if err != nil {
 		info.Status = "down"
-		info.Error = err.Error()
+		info.Error = "searxng health check failed: connection error or timeout"
 		return info
 	}
 	defer resp.Body.Close()

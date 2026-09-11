@@ -14,10 +14,12 @@
 ## 3. Commit History & Conventional Commits
 - **Compliance**: Recent commits adhere to Conventional Commits specification.
 - **History Size**: Clean, no destructive rewrites.
+- **Remote Branches**: Pruned 5 obsolete merged branches on `origin`.
 
-## 4. Sensitive Data & Debugging Markers
-- **Sensitive Data**: Grep searches revealed no exposed plaintext credentials. `.env.example` file is properly tracked, while `.env` is ignored.
-- **Debugging Markers**: Deep scans revealed no lingering debugging artifacts.
+## 4. Sensitive Data & Legal Files
+- **Remote Credentials**: Purged embedded PAT token from local `.git/config` and migrated to credential helper.
+- **Configuration Hygiene**: Completely overhauled `.env.example`, eliminating legacy Python artifacts and aligning 1:1 with Go runtime configuration.
+- **Legal Compliance**: Created missing `LICENSE` file (MIT) matching `README.md` declaration.
 
 ## 5. Actionable Hygiene Matrix
 
@@ -25,6 +27,7 @@
 | :--- | :--- | :--- | :--- |
 | `.gitignore` | Low | Missing patterns for OS and IDEs | Patched `.gitignore` with `.DS_Store`, `Thumbs.db`, `.vscode/`, `.idea/`. |
 | `.gitattributes` | Low | File was missing | Created `.gitattributes` explicitly setting `* text=auto eol=lf`. |
-| Repo Bloat | None | No large files or binaries | Clean. |
-| Commits | None | Perfect Conventional Commits | Clean. |
-| Secrets | None | No exposed credentials | Clean. |
+| `LICENSE` | High | Missing file despite README declaration | Added MIT License file. |
+| `.env.example` | Medium | Stale legacy Python config | Replaced with Go runtime environment variables. |
+| Remote Hygiene | Medium | Stale merged remote branches | Pruned 5 merged branches on `origin`. |
+| Local `.git` | Critical | Token in `.git/config` remote URL | Purged and switched to `gh` credential helper. |

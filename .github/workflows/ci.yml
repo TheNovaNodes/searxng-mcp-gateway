@@ -3,25 +3,55 @@ name: CI Test Suite
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - '.gitattributes'
+      - 'LICENSE'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - '.gitattributes'
+      - 'LICENSE'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: Test & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version-file: 'go.mod'
+          cache: true
+
       - name: Verify Dependencies
         run: go mod verify
-      - name: Vet
+
+      - name: Vet Code
         run: go vet ./...
-      - name: Run Tests
+
+      - name: Run Tests (with Race Detection)
         run: go test -v -race -cover ./internal/...
-      - name: Build Binary
+
+      - name: Build Gateway Binary
         run: go build -v -ldflags="-s -w" -o bin/searxng-gateway .
+
+      - name: Verify Docker Build (Smoke Check)
+        run: docker build -t searxng-gateway:test .

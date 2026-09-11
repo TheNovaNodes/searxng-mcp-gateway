@@ -1,5 +1,7 @@
 # TheNovaNodes AGENTS.md Sandwich Manifest
 
+📚 **Documentation Suite:** [README](README.md) • [Architecture](ARCHITECTURE.md) • [Contributing](CONTRIBUTING.md) • [Security Policy](SECURITY.md) • [Code of Conduct](CODE_OF_CONDUCT.md) • [License](LICENSE)
+
 ## Part 1: NovaNodes Universal Invariants
 
 1.  **Strict Git Flow (ПРАВИЛА КРОВИ):**
@@ -7,7 +9,7 @@
     *   All changes MUST be proposed via dedicated feature branches and PRs.
     *   No merge without ЗавЛаб approval.
 2.  **Zero Hardcoded Credentials:**
-    *   API keys for paid providers (Tavily, Exa, Firecrawl, etc.) MUST be dynamically loaded from a shared memory RAM-disk vault located at `/dev/shm/agent_vault` or via environment variables.
+    *   API keys for paid providers (Tavily, Exa, Firecrawl, Olostep, etc.) MUST be dynamically loaded from a shared memory RAM-disk vault located at `/dev/shm/agent_vault` or via environment variables.
     *   Zero plaintext secrets in tests, PRs, or configuration files.
 3.  **Deadlock/Timeout Protections:**
     *   All network operations MUST have explicit timeouts.
@@ -24,6 +26,10 @@
     1.  `search_web`: Fast local search via SearXNG.
     2.  `fetch_page`: Web page retrieval with WAF/Cloudflare bypass.
     3.  `deep_research`: Hybrid research search with deduplication.
+*   **Security & SSRF Gate:**
+    *   All outbound requests in `fetch_page` MUST pass through `internal/echelon.ValidateTargetURL`.
+    *   Blocks loopback (`127.0.0.0/8`, `::1`), RFC 1918 subnets, cloud metadata (`169.254.169.254`), and non-HTTP schemes.
+    *   All HTTP redirects MUST re-validate the target URL.
 *   **Echelon Scraping Cascade:** A resilient 3-tier cascade for fetching web pages:
     *   Tier 1: Firecrawl
     *   Tier 2: Olostep

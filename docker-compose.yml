@@ -1,0 +1,21 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng-dev
+    ports:
+      - "127.0.0.1:8889:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8889/
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: thenovanodes/searxng-mcp-gateway:latest
+    container_name: searxng-mcp-gateway
+    network_mode: "host"
+    environment:
+      - SEARXNG_URL=http://127.0.0.1:8889
+      - SEARXNG_DEFAULT_MAX=10
+    restart: unless-stopped

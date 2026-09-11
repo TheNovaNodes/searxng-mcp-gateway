@@ -24,3 +24,11 @@ coverage.out
 
 # Go binaries
 bin/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE Configurations
+.vscode/
+.idea/

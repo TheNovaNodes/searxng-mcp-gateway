@@ -58,3 +58,39 @@ func TestVaultLiveSHM(t *testing.T) {
 		t.Logf("Found %d live Exa keys", len(exaKeys))
 	}
 }
+
+func TestVaultEnvFallback(t *testing.T) {
+	emptyDir := t.TempDir()
+	v := NewVault(emptyDir)
+
+	// In empty vault, no keys returned initially
+	if keys := v.GetKeys("tavily"); len(keys) != 0 {
+		t.Fatalf("expected 0 keys, got %v", keys)
+	}
+
+	// Set environment variable fallback
+	t.Setenv("TAVILY_API_KEY", "tvly-dev-envfallbackkey1234567890")
+	t.Setenv("FIRECRAWL_API_KEY", "fc-envfallbackkey987654321")
+	t.Setenv("EXA_API_KEY", "12345678-1234-1234-1234-1234567890ab")
+	t.Setenv("OLOSTEP_API_KEY", "olostep_myenvkey_999888777")
+
+	tavilyKeys := v.GetKeys("tavily")
+	if len(tavilyKeys) != 1 || tavilyKeys[0] != "tvly-dev-envfallbackkey1234567890" {
+		t.Errorf("unexpected tavily env keys: %v", tavilyKeys)
+	}
+
+	fcKeys := v.GetKeys("firecrawl")
+	if len(fcKeys) != 1 || fcKeys[0] != "fc-envfallbackkey987654321" {
+		t.Errorf("unexpected firecrawl env keys: %v", fcKeys)
+	}
+
+	exaKeys := v.GetKeys("exa")
+	if len(exaKeys) != 1 || exaKeys[0] != "12345678-1234-1234-1234-1234567890ab" {
+		t.Errorf("unexpected exa env keys: %v", exaKeys)
+	}
+
+	oloKeys := v.GetKeys("olostep")
+	if len(oloKeys) != 1 || oloKeys[0] != "olostep_myenvkey_999888777" {
+		t.Errorf("unexpected olostep env keys: %v", oloKeys)
+	}
+}

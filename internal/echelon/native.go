@@ -2,6 +2,7 @@ package echelon
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -18,21 +19,47 @@ var (
 
 // NativeScraper provides basic web page fetching without third-party APIs.
 type NativeScraper struct {
-	httpClient *http.Client
+	httpClient   *http.Client
+	allowPrivate bool
 }
 
 // NewNativeScraper creates a native scraper.
-func NewNativeScraper(timeout time.Duration) *NativeScraper {
+func NewNativeScraper(timeout time.Duration, allowPrivate bool) *NativeScraper {
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
+	client := &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			if !allowPrivate {
+				if _, err := ValidateTargetURL(req.URL.String(), false); err != nil {
+					return fmt.Errorf("redirect blocked by SSRF protection: %w", err)
+				}
+			}
+			return nil
+		},
+	}
 	return &NativeScraper{
-		httpClient: &http.Client{Timeout: timeout},
+		httpClient:   client,
+		allowPrivate: allowPrivate,
 	}
 }
 
 // Scrape performs a standard HTTP GET and extracts clean text.
 func (s *NativeScraper) Scrape(ctx context.Context, targetURL string) (*ScrapeResult, error) {
+	if _, err := ValidateTargetURL(targetURL, s.allowPrivate); err != nil {
+		return &ScrapeResult{
+			URL:        targetURL,
+			Provider:   "native",
+			StatusCode: 0,
+			Degraded:   true,
+			Error:      err.Error(),
+		}, err
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 	if err != nil {
 		return nil, err

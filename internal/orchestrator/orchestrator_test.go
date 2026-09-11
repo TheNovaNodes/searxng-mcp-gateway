@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestOrchestratorDeepResearch(t *testing.T) {
 	searxClient := searxng.NewClient(ts.URL, 2*time.Second)
 	v := vault.NewVault(t.TempDir()) // Empty vault for unit test
 
-	orc := NewOrchestrator(searxClient, v, nil, 60)
+	orc := NewOrchestrator(searxClient, v, nil, 60, false)
 	res := orc.DeepResearch(context.Background(), "test query", 5)
 
 	if res.Count != 1 {
@@ -49,7 +50,7 @@ func TestOrchestratorScrapeNativeFallback(t *testing.T) {
 	searxClient := searxng.NewClient(ts.URL, 2*time.Second)
 	v := vault.NewVault(t.TempDir()) // Empty vault forces fallback to native scraper
 
-	orc := NewOrchestrator(searxClient, v, nil, 60)
+	orc := NewOrchestrator(searxClient, v, nil, 60, true)
 	res := orc.ScrapePage(context.Background(), ts.URL)
 
 	if res.StatusCode != 200 {
@@ -77,7 +78,7 @@ func TestOrchestratorScrapeTruncation(t *testing.T) {
 	searxClient := searxng.NewClient(ts.URL, 2*time.Second)
 	v := vault.NewVault(t.TempDir())
 
-	orc := NewOrchestrator(searxClient, v, nil, 60)
+	orc := NewOrchestrator(searxClient, v, nil, 60, true)
 	res := orc.ScrapePage(context.Background(), ts.URL)
 
 	if len(res.Markdown) > MaxMarkdownLength+150 {
@@ -85,5 +86,30 @@ func TestOrchestratorScrapeTruncation(t *testing.T) {
 	}
 	if len(res.Markdown) <= MaxMarkdownLength {
 		t.Errorf("expected markdown to have truncation footer, got length: %d", len(res.Markdown))
+	}
+}
+
+func TestOrchestratorScrapeSSRFBlocked(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Sensitive internal data"))
+	}))
+	defer ts.Close()
+
+	searxClient := searxng.NewClient(ts.URL, 2*time.Second)
+	v := vault.NewVault(t.TempDir())
+
+	// Default: allowPrivateScrape = false
+	orc := NewOrchestrator(searxClient, v, nil, 60, false)
+	res := orc.ScrapePage(context.Background(), ts.URL)
+
+	if !res.Degraded {
+		t.Errorf("expected SSRF attempt to be degraded")
+	}
+	if !strings.Contains(res.Error, "SSRF protection") {
+		t.Errorf("expected error to mention SSRF protection, got: %s", res.Error)
+	}
+	if res.Markdown != "" {
+		t.Errorf("expected empty markdown on blocked SSRF, got: %s", res.Markdown)
 	}
 }

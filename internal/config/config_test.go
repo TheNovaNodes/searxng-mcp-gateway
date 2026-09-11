@@ -10,6 +10,7 @@ func TestConfigDefaults(t *testing.T) {
 	os.Unsetenv("SEARXNG_URL")
 	os.Unsetenv("SEARXNG_DEFAULT_MAX")
 	os.Unsetenv("CASCADE_TIMEOUT")
+	os.Unsetenv("SEARXNG_ALLOW_PRIVATE_SCRAPE")
 
 	cfg := Load()
 	if cfg.SearXNGURL != "http://127.0.0.1:8889" {
@@ -27,6 +28,9 @@ func TestConfigDefaults(t *testing.T) {
 	if cfg.CascadeTimeout != 6*time.Second {
 		t.Errorf("Expected CascadeTimeout 6s, got %v", cfg.CascadeTimeout)
 	}
+	if cfg.AllowPrivateScrape != false {
+		t.Errorf("Expected AllowPrivateScrape false, got %v", cfg.AllowPrivateScrape)
+	}
 }
 
 func TestConfigEnvOverrides(t *testing.T) {
@@ -34,6 +38,7 @@ func TestConfigEnvOverrides(t *testing.T) {
 	t.Setenv("SEARXNG_DEFAULT_MAX", "25")
 	t.Setenv("CASCADE_TIMEOUT", "12")
 	t.Setenv("RRF_K", "100")
+	t.Setenv("SEARXNG_ALLOW_PRIVATE_SCRAPE", "true")
 
 	cfg := Load()
 	if cfg.SearXNGURL != "http://searxng.local:8080" {
@@ -47,5 +52,8 @@ func TestConfigEnvOverrides(t *testing.T) {
 	}
 	if cfg.RRFK != 100 {
 		t.Errorf("Expected RRFK 100, got %d", cfg.RRFK)
+	}
+	if cfg.AllowPrivateScrape != true {
+		t.Errorf("Expected AllowPrivateScrape true, got %v", cfg.AllowPrivateScrape)
 	}
 }

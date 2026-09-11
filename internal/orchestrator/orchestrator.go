@@ -29,8 +29,9 @@ type Orchestrator struct {
 	tavilyClient  *echelon.TavilyClient
 	firecrawl     *echelon.FirecrawlClient
 	olostep       *echelon.OlostepClient
-	nativeScraper *echelon.NativeScraper
-	rrfK          int
+	nativeScraper      *echelon.NativeScraper
+	rrfK               int
+	allowPrivateScrape bool
 }
 
 // NewOrchestrator creates a new Orchestrator instance.
@@ -39,6 +40,7 @@ func NewOrchestrator(
 	v *vault.Vault,
 	cb *echelon.CircuitBreaker,
 	rrfK int,
+	allowPrivateScrape bool,
 ) *Orchestrator {
 	if cb == nil {
 		cb = echelon.NewCircuitBreaker(60 * time.Second)
@@ -55,16 +57,17 @@ func NewOrchestrator(
 	}
 
 	return &Orchestrator{
-		searxClient:   searxClient,
-		vault:         v,
-		cb:            cb,
-		balancers:     balancers,
-		exaClient:     echelon.NewExaClient(6 * time.Second),
-		tavilyClient:  echelon.NewTavilyClient(6 * time.Second),
-		firecrawl:     echelon.NewFirecrawlClient(12 * time.Second),
-		olostep:       echelon.NewOlostepClient(15 * time.Second),
-		nativeScraper: echelon.NewNativeScraper(8 * time.Second),
-		rrfK:          rrfK,
+		searxClient:        searxClient,
+		vault:              v,
+		cb:                 cb,
+		balancers:          balancers,
+		exaClient:          echelon.NewExaClient(6 * time.Second),
+		tavilyClient:       echelon.NewTavilyClient(6 * time.Second),
+		firecrawl:          echelon.NewFirecrawlClient(12 * time.Second),
+		olostep:            echelon.NewOlostepClient(15 * time.Second),
+		nativeScraper:      echelon.NewNativeScraper(8*time.Second, allowPrivateScrape),
+		rrfK:               rrfK,
+		allowPrivateScrape: allowPrivateScrape,
 	}
 }
 
@@ -125,6 +128,15 @@ func truncateMarkdown(md string) string {
 
 // ScrapePage performs intelligent page scraping (Firecrawl -> Olostep WAF bypass -> Native).
 func (o *Orchestrator) ScrapePage(ctx context.Context, targetURL string) *echelon.ScrapeResult {
+	if _, err := echelon.ValidateTargetURL(targetURL, o.allowPrivateScrape); err != nil {
+		return &echelon.ScrapeResult{
+			URL:      targetURL,
+			Provider: "none",
+			Degraded: true,
+			Error:    err.Error(),
+		}
+	}
+
 	// 1. Try Firecrawl
 	fcKeys := o.vault.GetKeys("firecrawl")
 	if selectedKey, ok := o.balancers["firecrawl"].GetNext(fcKeys, o.cb); ok {

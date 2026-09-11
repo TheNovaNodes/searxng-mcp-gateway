@@ -17,10 +17,11 @@ import (
 
 func TestLiveE2E(t *testing.T) {
 	cfg := config.Load()
+	cfg.AllowPrivateScrape = true
 
 	searxClient := searxng.NewClient(cfg.SearXNGURL, 5*time.Second)
 	v := vault.NewVault(cfg.VaultDir)
-	orc := orchestrator.NewOrchestrator(searxClient, v, nil, 60)
+	orc := orchestrator.NewOrchestrator(searxClient, v, nil, 60, cfg.AllowPrivateScrape)
 	srv := NewServer(searxClient, orc, cfg)
 
 	// 1. Test live search_web

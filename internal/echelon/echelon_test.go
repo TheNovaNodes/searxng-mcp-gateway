@@ -80,7 +80,7 @@ func TestNativeScraper(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	scraper := NewNativeScraper(2 * time.Second)
+	scraper := NewNativeScraper(2 * time.Second, true)
 	res, err := scraper.Scrape(context.Background(), ts.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

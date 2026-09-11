@@ -24,7 +24,7 @@ func main() {
 	v := vault.NewVault(cfg.VaultDir)
 	cb := echelon.NewCircuitBreaker(60)
 
-	orc := orchestrator.NewOrchestrator(searxClient, v, cb, cfg.RRFK)
+	orc := orchestrator.NewOrchestrator(searxClient, v, cb, cfg.RRFK, cfg.AllowPrivateScrape)
 	srv := server.NewServer(searxClient, orc, cfg)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

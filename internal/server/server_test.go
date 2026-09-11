@@ -38,11 +38,12 @@ func setupTestServer(t *testing.T) (*Server, *httptest.Server) {
 		SearchTimeout:     2 * time.Second,
 		CascadeTimeout:    2 * time.Second,
 		RRFK:              60,
+		AllowPrivateScrape: true,
 	}
 
 	searxClient := searxng.NewClient(ts.URL, 2*time.Second)
 	v := vault.NewVault(t.TempDir())
-	orc := orchestrator.NewOrchestrator(searxClient, v, nil, 60)
+	orc := orchestrator.NewOrchestrator(searxClient, v, nil, 60, true)
 
 	srv := NewServer(searxClient, orc, cfg)
 	return srv, ts

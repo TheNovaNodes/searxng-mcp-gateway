@@ -27,6 +27,7 @@ coverage.out
 
 # Go binaries
 bin/
+.deploy_rollback_capsule/
 
 # OS Files
 .DS_Store

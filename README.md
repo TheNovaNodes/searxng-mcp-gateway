@@ -222,6 +222,27 @@ All settings can be configured via environment variables:
 
 ---
 
+## 🚀 Deployment & Operations
+
+Deployment adheres to the canonical **5-Echelon Production Deployment Standard** via `scripts/deploy.sh`:
+
+```bash
+# Production deployment with pre-flight checks, rollback capsule, and smoke verification
+./scripts/deploy.sh
+
+# Dry-run validation without binary swap
+./scripts/deploy.sh --dry-run
+```
+
+### 5 Echelons:
+1. **🛡️ Échelon 0: Pre-Flight Guard & Rollback Capsule** — toolchain validation, commit resolution, creation of `.deploy_rollback_capsule`.
+2. **🧱 Échelon 1: Production Isolation Probe** — executes L1 unit test suite and enforces clean working tree.
+3. **🔄 Échelon 2: Atomic Switch & Graceful Shift** — atomic install of candidate binary.
+4. **🪞 Échelon 3: Identity & Truth Probe** — validates `runtime_commit_sha == git rev-parse HEAD` via `--version`.
+5. **🔍 Échelon 4: Deep Smoke Probe & Rollback Gate** — executes synthetic MCP stdio JSON-RPC handshake with automated rollback on error (`trap rollback EXIT`).
+
+---
+
 ## Security Architecture
 
 1. **SSRF Hardening:** See [SECURITY.md](SECURITY.md) for full threat model and test matrices. All outbound requests are checked before dispatch and re-checked across HTTP redirects.
